@@ -59,7 +59,8 @@ VertexShaderOutput MainVS(
     in VertexShaderInput input,
     // instance parameters
     in float4x4 world : TEXCOORD3,
-    in float4 parameters : TEXCOORD7
+    in float4 parameters : TEXCOORD7,
+    in float lineThicknessScale : TEXCOORD8
 )
 {
     bool getsShadowed;
@@ -99,7 +100,7 @@ VertexShaderOutput MainVS(
 
     // Screen-space offset for line thickness
     float4 clipPos = mul(viewPos, Projection);
-    float2 offset = normal * HalfThickness * sideSign / Resolution * 2.0;
+    float2 offset = normal * HalfThickness * lineThicknessScale * sideSign / Resolution * 2.0;
 
 	float3 color = input.Color;
 

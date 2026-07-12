@@ -69,6 +69,8 @@ public class SettingsMenu(WorldGame game)
     private static readonly string[] ShadowResolutions = ["512", "1024", "2048", "4096", "8192"]; // must be powers of 2 starting at 2^9
     private int _fpsLimit = 63;
     private float _lineWidth = 1;
+    private static readonly string[] LineDistanceModes = ["Fixed", "Dynamic line size", "NFM style culling"];
+    private int _lineDistanceMode = (int)OutlineDistanceMode.NfmStyleCull;
     private bool _lowLatency = false;
 
     // Audio settings
@@ -291,6 +293,9 @@ public class SettingsMenu(WorldGame game)
         ImGui.Text("Outline Width");
         ImGui.SetNextItemWidth(sliderWidth);
         ImGui.SliderFloat("##LineWidth", ref _lineWidth, 0.5f, 4f, "%.1f");
+
+        ImGui.Text("Line Distance Mode");
+        ImGui.Combo("##LineDistanceMode", ref _lineDistanceMode, LineDistanceModes, LineDistanceModes.Length);
         // ImGui.TextColored(new Vector4(1.0f, 0.8f, 0.4f, 1.0f), 
         //     "Note: changing some video options will cause the game to exit and restart.");
     }
@@ -586,6 +591,8 @@ public class SettingsMenu(WorldGame game)
         }
 
         World.OutlineThickness = _lineWidth;
+        _lineDistanceMode = Math.Clamp(_lineDistanceMode, 0, LineDistanceModes.Length - 1);
+        World.LineDistanceMode = (OutlineDistanceMode)_lineDistanceMode;
     }
 
     private void SaveConfig()
@@ -610,6 +617,7 @@ public class SettingsMenu(WorldGame game)
                 cfgWriter.WriteLine($"video_antialias {_antialias}");
                 cfgWriter.WriteLine($"video_fps {_fpsLimit}");
                 cfgWriter.WriteLine($"video_linewidth2 {_lineWidth.ToString("F4", CultureInfo.InvariantCulture)}");
+                cfgWriter.WriteLine($"video_line_distance_mode {GetLineDistanceModeConfigValue()}");
                 cfgWriter.WriteLine($"video_shadow_cascade {_shadowCascadeLevel}");
                 cfgWriter.WriteLine($"video_shadow_res {_shadowResolution}");
                 cfgWriter.WriteLine($"video_low_latency {(_lowLatency ? 1 : 0)}");
@@ -737,6 +745,32 @@ public class SettingsMenu(WorldGame game)
             _ => "Auto"
         };
     }
+
+    private string GetLineDistanceModeConfigValue()
+    {
+        return ((OutlineDistanceMode)Math.Clamp(_lineDistanceMode, 0, LineDistanceModes.Length - 1)) switch
+        {
+            OutlineDistanceMode.DynamicLineSize => "dynamic",
+            OutlineDistanceMode.NfmStyleCull => "nfm_cull",
+            _ => "fixed"
+        };
+    }
+
+    private static int ParseLineDistanceMode(string value, int fallback)
+    {
+        if (int.TryParse(value, CultureInfo.InvariantCulture, out var numericValue))
+        {
+            return Math.Clamp(numericValue, 0, LineDistanceModes.Length - 1);
+        }
+
+        return value.ToLowerInvariant() switch
+        {
+            "dynamic" or "dynamic_line_size" => (int)OutlineDistanceMode.DynamicLineSize,
+            "nfm_cull" or "nfm_style_cull" or "nfm" => (int)OutlineDistanceMode.NfmStyleCull,
+            "fixed" or "off" => (int)OutlineDistanceMode.Fixed,
+            _ => fallback
+        };
+    }
     
     public void LoadConfig()
     {
@@ -790,6 +824,9 @@ public class SettingsMenu(WorldGame game)
                             break;
                         case "video_linewidth2":
                             _lineWidth = float.Parse(value, CultureInfo.InvariantCulture);
+                            break;
+                        case "video_line_distance_mode":
+                            _lineDistanceMode = ParseLineDistanceMode(value, _lineDistanceMode);
                             break;
                         case "video_shadow_cascade":
                             _shadowCascadeLevel = int.Parse(value, CultureInfo.InvariantCulture);

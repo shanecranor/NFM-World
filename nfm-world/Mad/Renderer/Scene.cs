@@ -1,6 +1,7 @@
 ﻿using System.Buffers;
 using System.Collections;
 using System.Runtime.InteropServices;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using NFMWorldLibrary;
 
@@ -243,7 +244,12 @@ public class Scene
             
             foreach (var renderData in obj.GetRenderData(lighting))
             {
-                _renderDataCache.Add(renderData);
+                if (!TryApplyLineDistanceMode(renderData, _camera, out var adjustedRenderData))
+                {
+                    continue;
+                }
+
+                _renderDataCache.Add(adjustedRenderData);
             }
         }
 
@@ -251,6 +257,40 @@ public class Scene
         {
             element.Render(_camera, lighting, buffer, instanceCount);
         }
+    }
+
+    private static bool TryApplyLineDistanceMode(RenderData renderData, Camera camera, out RenderData adjustedRenderData)
+    {
+        adjustedRenderData = renderData;
+
+        if (camera is not PerspectiveCamera ||
+            renderData.RenderElement is not LineMesh ||
+            World.LineDistanceMode == OutlineDistanceMode.Fixed)
+        {
+            return true;
+        }
+
+        var cutoff = World.OutlineCullDistance;
+        if (cutoff <= 0)
+        {
+            return true;
+        }
+
+        var distanceSquared = Vector3.DistanceSquared(renderData.World.Translation, camera.Position);
+        if (World.LineDistanceMode == OutlineDistanceMode.NfmStyleCull)
+        {
+            return distanceSquared <= cutoff * cutoff;
+        }
+
+        if (World.LineDistanceMode == OutlineDistanceMode.DynamicLineSize)
+        {
+            var distance = MathF.Sqrt(distanceSquared);
+            var distanceAmount = MathHelper.Clamp(distance / cutoff, 0.0f, 1.0f);
+            var thicknessScale = MathHelper.Lerp(1.0f, World.OutlineDynamicMinimumScale, distanceAmount);
+            adjustedRenderData = renderData with { LineThicknessScale = thicknessScale };
+        }
+
+        return true;
     }
 
     public void OnBeforeUpdate()

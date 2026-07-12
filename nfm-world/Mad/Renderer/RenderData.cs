@@ -7,8 +7,9 @@ public readonly record struct RenderData(
     float AlphaOverride = 1.0f,
     bool IsFullbright = false,
     bool Glow = false,
-    int RenderOrder = 0
+    int RenderOrder = 0,
+    float LineThicknessScale = 1.0f
 )
 {
-    public InstanceData ToInstanceData() => new(World, GetsShadowed, AlphaOverride, IsFullbright, Glow);
+    public InstanceData ToInstanceData() => new(World, GetsShadowed, AlphaOverride, IsFullbright, Glow, LineThicknessScale);
 }
